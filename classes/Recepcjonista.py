@@ -1,6 +1,6 @@
 from datetime import datetime
-from clases.OpaskaNFC import *
-from clases.Raport import *
+from classes.OpaskaNFC import *
+from classes.Raport import *
 
 class Recepcjonista:
     def __init__(self, identyfikator, imie, nazwisko, stanowisko):

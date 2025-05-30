@@ -4,11 +4,11 @@ from datetime import datetime, timedelta
 import os
 import bcrypt
 
-from clases.Klient import *
-from clases.OpaskaNFC import *
-from clases.Raport import *
-from clases.Recepcjonista import *
-from clases.Transakcja import *
+from classes.Klient import *
+from classes.OpaskaNFC import *
+from classes.Raport import *
+from classes.Recepcjonista import *
+from classes.Transakcja import *
 
 class SystemObslugi:
     def __init__(self):
