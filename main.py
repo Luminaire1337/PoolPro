@@ -153,9 +153,12 @@ class MainWindow(QMainWindow):
 
     def init_ui(self, screen_geometry):
         self.setWindowTitle("POOLPRO GUI")
+        window_width, window_height = 400, 300
         self.setGeometry(
-            screen_geometry.width() // 2 - 200, screen_geometry.height() // 2 - 150, 400, 300
+            screen_geometry.width() // 2 - window_width // 2, screen_geometry.height() // 2 - window_height // 2, window_width, window_height
         )
+        self.setFixedSize(window_width, window_height)
+    
         main_layout = QVBoxLayout()
 
         # Update current layout
