@@ -1,9 +1,10 @@
 import sys
 import os
+from datetime import datetime
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QLabel,
     QDialog, QFormLayout, QWidget, QMessageBox, QComboBox,
-    QStackedWidget, QDateEdit, QFrame, QGridLayout
+    QStackedWidget, QDateEdit, QFrame, QGridLayout, QTableWidget, QHeaderView, QTableWidgetItem
 )
 from PyQt6.QtCore import QTimer, QDate, Qt, QSize
 from PyQt6.QtGui import QIcon
@@ -214,7 +215,7 @@ class AuthorizationDialog(BaseDialog):
         form_layout.setSpacing(15)
         form_layout.setContentsMargins(20, 20, 20, 20)
 
-        self.login_input = ModernLineEdit("Login", self)
+        self.login_input = ModernLineEdit("Login użytkownika", self)
         self.password_input = ModernLineEdit("Hasło", self)
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
 
@@ -435,6 +436,237 @@ class ReportDialog(BaseDialog):
         self.show_notification(QMessageBox.Icon.Information, "Raport", message)
         self.accept()
 
+class UserManagementDialog(BaseDialog):
+    def __init__(self, parent=None):
+        super().__init__("Zarządzanie Użytkownikami", parent)
+        
+        title_label = QLabel("Zarządzanie użytkownikami systemu", self)
+        title_label.setObjectName("title")
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Tabela użytkowników
+        users_card = CardWidget(self)
+        users_layout = QVBoxLayout(users_card)
+        
+        self.users_table = QTableWidget(0, 5, self)
+        self.users_table.setHorizontalHeaderLabels(["ID", "Login", "Imię", "Nazwisko", "Stanowisko"])
+        self.users_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.users_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.users_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.users_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.users_table.setStyleSheet(f"""
+            QTableWidget {{
+                background-color: {CARD_BG};
+                color: {TEXT_COLOR};
+                border: 1px solid #bdbdbd;
+            }}
+            QHeaderView::section {{
+                background-color: #e0e0e0;
+                color: {TEXT_COLOR};
+                font-weight: bold;
+                border: none;
+                border-bottom: 1px solid #bdbdbd;
+                padding: 4px;
+            }}
+            QTableWidget::item {{
+                padding: 4px;
+            }}
+            QTableWidget::item:selected {{
+                background-color: {ACCENT_COLOR};
+                color: white;
+            }}
+        """)
+        
+        users_layout.addWidget(self.users_table)
+        
+        # Przyciski zarządzania
+        table_buttons_layout = QHBoxLayout()
+        
+        self.delete_button = ModernButton("Usuń użytkownika", None, self)
+        self.delete_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: #f44336;
+                color: white;
+            }}
+            QPushButton:hover {{
+                background-color: #d32f2f;
+            }}
+        """)
+        self.delete_button.clicked.connect(self.delete_user)
+        
+        self.refresh_button = ModernButton("Odśwież", None, self)
+        self.refresh_button.clicked.connect(self.load_users)
+        
+        table_buttons_layout.addWidget(self.delete_button)
+        table_buttons_layout.addWidget(self.refresh_button)
+        
+        users_layout.addLayout(table_buttons_layout)
+        
+        # Formularz dodawania nowego użytkownika
+        add_user_card = CardWidget(self)
+        form_layout = QFormLayout(add_user_card)
+        form_layout.setSpacing(15)
+        form_layout.setContentsMargins(20, 20, 20, 20)
+
+        self.login_input = ModernLineEdit("Login użytkownika", self)
+        self.password_input = ModernLineEdit("Hasło", self)
+        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.imie_input = ModernLineEdit("Imię", self)
+        self.nazwisko_input = ModernLineEdit("Nazwisko", self)
+        
+        self.stanowisko_input = ModernComboBox(self)
+        self.stanowisko_input.addItems(["Recepcjonista", "Kierownik"])
+
+        form_layout.addRow("Login:", self.login_input)
+        form_layout.addRow("Hasło:", self.password_input)
+        form_layout.addRow("Imię:", self.imie_input)
+        form_layout.addRow("Nazwisko:", self.nazwisko_input)
+        form_layout.addRow("Stanowisko:", self.stanowisko_input)
+        
+        self.add_button = ModernButton("Dodaj użytkownika", None, self)
+        self.add_button.clicked.connect(self.add_user)
+        form_layout.addRow("", self.add_button)
+        
+        # Button layout
+        button_layout = QHBoxLayout()
+        self.close_button = ModernButton("Zamknij", None, self)
+        self.close_button.setStyleSheet("""
+            QPushButton {
+                background-color: #e0e0e0;
+                color: #424242;
+            }
+            QPushButton:hover {
+                background-color: #bdbdbd;
+            }
+        """)
+        self.close_button.clicked.connect(self.accept)
+        
+        button_layout.addStretch(1)
+        button_layout.addWidget(self.close_button)
+        
+        # Adding all components to main layout
+        self.layout.addWidget(title_label)
+        self.layout.addWidget(users_card)
+        self.layout.addWidget(add_user_card)
+        self.layout.addLayout(button_layout)
+        
+        self.setMinimumWidth(600)
+        
+        # Load users when dialog is created
+        self.load_users()
+    
+    def load_users(self):
+        """
+        Wczytuje użytkowników z bazy danych do tabeli
+        """
+        users = self.parent().system.pobierz_pracownikow()
+        
+        self.users_table.setRowCount(0)  # Clear current table
+        
+        for user in users:
+            row_position = self.users_table.rowCount()
+            self.users_table.insertRow(row_position)
+            
+            for col, value in enumerate(user):
+                item = QTableWidgetItem(str(value))
+                item.setBackground(Qt.GlobalColor.white)
+                self.users_table.setItem(row_position, col, item)
+                
+        # Zaznaczenie aktualnie zalogowanego użytkownika
+        current_user_id = self.parent().system.zalogowany_pracownik.identyfikator
+        for row in range(self.users_table.rowCount()):
+            if int(self.users_table.item(row, 0).text()) == current_user_id:
+                for col in range(self.users_table.columnCount()):
+                    self.users_table.item(row, col).setBackground(Qt.GlobalColor.lightGray)
+    
+    def delete_user(self):
+        """
+        Usuwa wybranego użytkownika
+        """
+        selected_rows = self.users_table.selectionModel().selectedRows()
+        if not selected_rows:
+            self.show_notification(
+                QMessageBox.Icon.Warning,
+                "Brak wyboru",
+                "Proszę wybrać użytkownika do usunięcia."
+            )
+            return
+            
+        user_id = int(self.users_table.item(selected_rows[0].row(), 0).text())
+        
+        # Sprawdzenie czy to nie jest zalogowany użytkownik
+        if user_id == self.parent().system.zalogowany_pracownik.identyfikator:
+            self.show_notification(
+                QMessageBox.Icon.Warning,
+                "Błąd",
+                "Nie można usunąć własnego konta."
+            )
+            return
+            
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Icon.Question)
+        msg_box.setWindowTitle("Potwierdź usunięcie")
+        msg_box.setText(f"Czy na pewno chcesz usunąć użytkownika {self.users_table.item(selected_rows[0].row(), 2).text()} {self.users_table.item(selected_rows[0].row(), 3).text()}?")
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        msg_box.setDefaultButton(QMessageBox.StandardButton.No)
+        
+        if msg_box.exec() == QMessageBox.StandardButton.Yes:
+            success, message = self.parent().system.usun_pracownika(user_id)
+            
+            if success:
+                self.show_notification(
+                    QMessageBox.Icon.Information,
+                    "Sukces",
+                    message
+                )
+                self.load_users()  # Odświeżenie tabeli
+            else:
+                self.show_notification(
+                    QMessageBox.Icon.Warning,
+                    "Błąd",
+                    message
+                )
+    
+    def add_user(self):
+        """
+        Dodaje nowego użytkownika
+        """
+        login = self.login_input.text()
+        password = self.password_input.text()
+        imie = self.imie_input.text()
+        nazwisko = self.nazwisko_input.text()
+        stanowisko = self.stanowisko_input.currentText()
+        
+        if not login or not password or not imie or not nazwisko:
+            self.show_notification(
+                QMessageBox.Icon.Warning,
+                "Brak danych",
+                "Wszystkie pola są wymagane."
+            )
+            return
+            
+        success, message = self.parent().system.dodaj_pracownika(
+            login, password, imie, nazwisko, stanowisko
+        )
+        
+        if success:
+            self.show_notification(
+                QMessageBox.Icon.Information,
+                "Sukces",
+                message
+            )
+            # Clear form
+            self.login_input.clear()
+            self.password_input.clear()
+            self.imie_input.clear()
+            self.nazwisko_input.clear()
+            self.load_users()  # Refresh table
+        else:
+            self.show_notification(
+                QMessageBox.Icon.Warning,
+                "Błąd",
+                message
+            )
 
 class StatusPanel(CardWidget):
     status_keys = ["status", "liczba_klientow", "aktywne_opaski", "data"]
@@ -505,6 +737,11 @@ class SidebarButton(QPushButton):
 
 
 class MainWindow(QMainWindow):
+    stats_friendly_names = {
+        "dzienne_przychody": "Przychód dzienny",
+        "miesieczne_przychody": "Przychód miesięczny",
+    }
+
     def __init__(self, screen_geometry):
         super().__init__()
         self.system = SystemObslugi()
@@ -621,8 +858,10 @@ class MainWindow(QMainWindow):
             ("Rejestruj wejście", self.show_client_registration),
             ("Skanuj opaskę", self.show_checkout_dialog),
             ("Raporty", self.show_report_dialog),
-            ("Wyloguj", self.logout)
+            ("Zarządzanie użytkownikami", self.show_user_management)
         ]
+        
+        menu_items.append(("Wyloguj", self.logout))
         
         for text, handler in menu_items:
             button = SidebarButton(text)
@@ -649,6 +888,13 @@ class MainWindow(QMainWindow):
         self.dashboard_stack = QStackedWidget()
         self.content_layout.addWidget(self.dashboard_stack, 1)
         
+        # Create and build the dashboard page
+        self.create_dashboard_page()
+
+    def create_dashboard_page(self):
+        """
+        Tworzy stronę z pulpitem dla użytkownika
+        """
         dashboard_page = QWidget()
         dashboard_layout = QVBoxLayout(dashboard_page)
         
@@ -663,14 +909,9 @@ class MainWindow(QMainWindow):
         stats_grid = QGridLayout()
         
         stats = self.system.pobierz_statystyki()
-        stats_friendly_names = {
-            "dzienne_przychody": "Przychód dzienny",
-            "miesieczne_przychody": "Przychód miesięczny",
-        }
-        
         item_counter = 0
         for key, value in stats.items():
-            title = stats_friendly_names.get(key, key)
+            title = self.stats_friendly_names.get(key, key)
             card = CardWidget()
             card_layout = QVBoxLayout(card)
             
@@ -687,21 +928,105 @@ class MainWindow(QMainWindow):
             item_counter += 1
             stats_grid.addWidget(card, row, col)
         
+        # Add last refresh time indicator
+        refresh_label = QLabel(f"Ostatnia aktualizacja: {datetime.now().strftime('%H:%M:%S')}")
+        refresh_label.setStyleSheet(f"""
+            font-size: 12px; 
+            color: {SECONDARY_TEXT}; 
+            margin-top: 10px;
+            qproperty-alignment: AlignRight;
+        """)
+        refresh_label.setObjectName("refresh_label")
+        
         dashboard_layout.addWidget(welcome_label)
         dashboard_layout.addLayout(stats_grid)
+        dashboard_layout.addWidget(refresh_label)
         dashboard_layout.addStretch(1)
         
         self.dashboard_stack.addWidget(dashboard_page)
 
     def init_timer(self):
+        # Timer for status updates (every second)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_status)
         self.timer.start(1000)
+        
+        # Timer for statistics updates (every minute)
+        self.stats_timer = QTimer(self)
+        self.stats_timer.timeout.connect(self.update_statistics)
+        self.stats_timer.start(60000)
 
     def update_status(self):
         if self.status_panel:
             status = self.system.monitoruj_status()
             self.status_panel.update_status(status)
+            
+    def update_statistics(self):
+        # Only update if we're on the dashboard page
+        if self.content_stack.currentIndex() == 1 and self.dashboard_stack.currentIndex() == 0:
+            self.refresh_dashboard_stats()
+
+    def refresh_dashboard_stats(self):
+        """
+        Aktualizuje statystyki na pulpicie
+        """
+        # Get current dashboard page
+        dashboard_page = self.dashboard_stack.widget(0)
+        if not dashboard_page:
+            return
+        
+        # Look for the stats grid in the layout
+        stats_grid = None
+        for i in range(dashboard_page.layout().count()):
+            item = dashboard_page.layout().itemAt(i)
+            if isinstance(item, QGridLayout):
+                stats_grid = item
+                break
+        
+        if not stats_grid:
+            return
+        
+        # Get updated statistics
+        stats = self.system.pobierz_statystyki()
+        
+        # Update each card with new data
+        for i in range(stats_grid.count()):
+            widget_item = stats_grid.itemAt(i)
+            if not widget_item:
+                continue
+                
+            card = widget_item.widget()
+            if not card or not isinstance(card, CardWidget):
+                continue
+                
+            # Find the key from the card's title label
+            card_layout = card.layout()
+            for j in range(card_layout.count()):
+                title_label = card_layout.itemAt(0).widget()
+                value_label = card_layout.itemAt(1).widget()
+                
+                if not title_label or not value_label:
+                    continue
+                
+                # Find the key by matching the title label text
+                found_key = None
+                for key, friendly_name in self.stats_friendly_names.items():
+                    if title_label.text() == friendly_name:
+                        found_key = key
+                        break
+                
+                if found_key and found_key in stats:
+                    value_label.setText(f"{stats[found_key]} zł")
+                
+                break
+        
+        # Update the refresh timestamp
+        for i in range(dashboard_page.layout().count()):
+            item = dashboard_page.layout().itemAt(i)
+            if item.widget() and item.widget().objectName() == "refresh_label":
+                refresh_label = item.widget()
+                refresh_label.setText(f"Ostatnia aktualizacja: {datetime.now().strftime('%H:%M:%S')}")
+                break
 
     def show_auth_dialog(self):
         dialog = AuthorizationDialog(self)
@@ -719,6 +1044,10 @@ class MainWindow(QMainWindow):
         if sender in self.menu_buttons:
             for button in self.menu_buttons:
                 button.setChecked(button == sender)
+        
+        # If dashboard is already created, refresh it
+        if self.dashboard_stack.count() > 0:
+            self.refresh_dashboard_stats()
         
         self.dashboard_stack.setCurrentIndex(0)
 
@@ -774,6 +1103,19 @@ class MainWindow(QMainWindow):
                 button.setChecked(button == sender)
                 
         ReportDialog(self).exec()
+
+    def show_user_management(self):
+        sender = self.sender()
+        if sender in self.menu_buttons:
+            for button in self.menu_buttons:
+                button.setChecked(button == sender)
+        
+        # Sprawdzamy uprawnienia - tylko kierownik może zarządzać użytkownikami
+        if self.system.zalogowany_pracownik and self.system.zalogowany_pracownik.stanowisko == "Kierownik":
+            UserManagementDialog(self).exec()
+        else:
+            self.show_notification(QMessageBox.Icon.Warning, "Brak dostępu", 
+                                 "Tylko kierownicy mają dostęp do zarządzania użytkownikami.")
 
     def logout(self):
         self.system.wyloguj_uzytkownika()

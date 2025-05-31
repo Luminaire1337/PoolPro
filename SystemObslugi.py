@@ -368,3 +368,48 @@ class SystemObslugi:
         """, (f"{current_month}%",))
         revenue = cursor.fetchone()[0]
         return round(revenue if revenue else 0, 2)
+
+    def dodaj_pracownika(self, login, haslo, imie, nazwisko, stanowisko):
+        try:
+            cursor = self.conn.cursor()
+            # Sprawdź czy login jest unikalny
+            cursor.execute("SELECT COUNT(*) FROM Pracownik WHERE login = ?", (login,))
+            if cursor.fetchone()[0] > 0:
+                return False, "Pracownik o podanym loginie już istnieje."
+                
+            # Szyfrowanie hasła i dodanie pracownika
+            zaszyfrowane_haslo = self.szyfruj_haslo(haslo)
+            cursor.execute(
+                "INSERT INTO Pracownik (login, haslo, imie, nazwisko, stanowisko) VALUES (?, ?, ?, ?, ?)",
+                (login, zaszyfrowane_haslo, imie, nazwisko, stanowisko)
+            )
+            self.conn.commit()
+            return True, f"Pracownik {imie} {nazwisko} został pomyślnie dodany."
+        except sqlite3.Error as e:
+            return False, f"Błąd bazy danych: {e}"
+    
+    def usun_pracownika(self, pracownik_id):
+        try:
+            # Nie można usunąć zalogowanego pracownika
+            if self.zalogowany_pracownik and self.zalogowany_pracownik.identyfikator == pracownik_id:
+                return False, "Nie można usunąć własnego konta."
+                
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT imie, nazwisko FROM Pracownik WHERE identyfikator = ?", (pracownik_id,))
+            pracownik = cursor.fetchone()
+            if not pracownik:
+                return False, "Nie znaleziono pracownika o podanym ID."
+                
+            cursor.execute("DELETE FROM Pracownik WHERE identyfikator = ?", (pracownik_id,))
+            self.conn.commit()
+            return True, f"Pracownik {pracownik[0]} {pracownik[1]} został pomyślnie usunięty."
+        except sqlite3.Error as e:
+            return False, f"Błąd bazy danych: {e}"
+    
+    def pobierz_pracownikow(self):
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT identyfikator, login, imie, nazwisko, stanowisko FROM Pracownik")
+            return cursor.fetchall()
+        except sqlite3.Error:
+            return []
