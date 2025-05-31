@@ -1,9 +1,8 @@
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime
 import sqlite3
 import os
 import tempfile
-from decimal import Decimal
 
 from SystemObslugi import *
 

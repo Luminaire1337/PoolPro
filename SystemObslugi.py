@@ -320,3 +320,29 @@ class SystemObslugi:
         
         pesel = pesel_without_checksum + str(checksum)
         return int(pesel)
+
+    def pobierz_statystyki(self):
+        return {
+            "dzienne_przychody": self._wygeneruj_dzienne_przychody(),
+            "miesieczne_przychody": self._wygeneruj_miesieczne_przychody(),
+        }
+    
+    def _wygeneruj_dzienne_przychody(self):
+        today = datetime.now().strftime("%Y-%m-%d")
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT COALESCE(SUM(kwota), 0) FROM Transakcja 
+            WHERE data LIKE ?
+        """, (f"{today}%",))
+        revenue = cursor.fetchone()[0]
+        return round(revenue if revenue else 0, 2)
+    
+    def _wygeneruj_miesieczne_przychody(self):
+        current_month = datetime.now().strftime("%Y-%m")
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT COALESCE(SUM(kwota), 0) FROM Transakcja 
+            WHERE data LIKE ?
+        """, (f"{current_month}%",))
+        revenue = cursor.fetchone()[0]
+        return round(revenue if revenue else 0, 2)
