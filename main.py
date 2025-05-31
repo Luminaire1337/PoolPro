@@ -214,11 +214,11 @@ class AuthorizationDialog(BaseDialog):
         form_layout.setSpacing(15)
         form_layout.setContentsMargins(20, 20, 20, 20)
 
-        self.id_input = ModernLineEdit("ID użytkownika", self)
+        self.login_input = ModernLineEdit("Login", self)
         self.password_input = ModernLineEdit("Hasło", self)
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
 
-        form_layout.addRow("ID użytkownika:", self.id_input)
+        form_layout.addRow("Login:", self.login_input)
         form_layout.addRow("Hasło:", self.password_input)
 
         button_layout = QHBoxLayout()
@@ -250,7 +250,7 @@ class AuthorizationDialog(BaseDialog):
         self.layout.addLayout(button_layout)
 
     def get_credentials(self):
-        return self.id_input.text(), self.password_input.text()
+        return self.login_input.text(), self.password_input.text()
 
 
 class ClientRegistrationDialog(BaseDialog):
@@ -330,7 +330,7 @@ class CheckoutDialog(BaseDialog):
         self.numer_opaski_input = ModernLineEdit("Numer seryjny opaski", self)
         
         self.metoda_platnosci_input = ModernComboBox(self)
-        self.metoda_platnosci_input.addItems(["Gotówka", "Karta", "BLIK"])
+        self.metoda_platnosci_input.addItems(["Gotówka", "Karta"])
 
         form_layout.addRow("Numer seryjny opaski:", self.numer_opaski_input)
         form_layout.addRow("Metoda płatności:", self.metoda_platnosci_input)
@@ -706,8 +706,8 @@ class MainWindow(QMainWindow):
     def show_auth_dialog(self):
         dialog = AuthorizationDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            user_id, password = dialog.get_credentials()
-            if self.system.zaloguj_uzytkownika(user_id, password):
+            login, password = dialog.get_credentials()
+            if self.system.zaloguj_uzytkownika(login, password):
                 self.content_stack.setCurrentIndex(1)
                 self.menu_buttons[0].setChecked(True)
                 self.show_dashboard()

@@ -168,6 +168,7 @@ class TestAuthorization(unittest.TestCase):
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS Pracownik (
             identyfikator INTEGER PRIMARY KEY AUTOINCREMENT,
+            login TEXT NOT NULL UNIQUE,
             haslo TEXT NOT NULL,
             imie TEXT NOT NULL,
             nazwisko TEXT NOT NULL,
@@ -177,11 +178,11 @@ class TestAuthorization(unittest.TestCase):
 
         # Dodawanie testowych danych
         test_data = [
-            (1, SystemObslugi().szyfruj_haslo("secure123"), "Jan", "Kowalski", "Recepcjonista"),
+            (1, "jan", SystemObslugi().szyfruj_haslo("secure123"), "Jan", "Kowalski", "Recepcjonista"),
         ]
         
         cursor.executemany(
-            "INSERT INTO Pracownik VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO Pracownik VALUES (?, ?, ?, ?, ?, ?)",
             test_data
         )
         conn.commit()
@@ -203,13 +204,13 @@ class TestAuthorization(unittest.TestCase):
         """Test autoryzacji poprawnego pracownika"""
         system = SystemObslugi()
         system.conn = self.conn
-        self.assertTrue(system.zaloguj_uzytkownika(1, "secure123"))
+        self.assertTrue(system.zaloguj_uzytkownika("jan", "secure123"))
 
     def test_autoryzacja_niepoprawnego_pracownika(self):
         """Test autoryzacji niepoprawnego pracownika"""
         system = SystemObslugi()
         system.conn = self.conn
-        self.assertFalse(system.zaloguj_uzytkownika(1, "wrongpassword"))
+        self.assertFalse(system.zaloguj_uzytkownika("jan", "wrongpassword"))
 
 if __name__ == '__main__':
     unittest.main()

@@ -3,8 +3,9 @@ from classes.OpaskaNFC import *
 from classes.Raport import *
 
 class Recepcjonista:
-    def __init__(self, identyfikator, imie, nazwisko, stanowisko):
+    def __init__(self, identyfikator, login, imie, nazwisko, stanowisko):
         self.identyfikator = identyfikator
+        self.login = login
         self.imie = imie
         self.nazwisko = nazwisko
         self.stanowisko = stanowisko

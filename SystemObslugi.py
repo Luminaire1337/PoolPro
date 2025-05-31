@@ -17,14 +17,14 @@ class SystemObslugi:
         self.conn = None
         self.zalogowany_pracownik = None
 
-    def zaloguj_uzytkownika(self, identyfikator, haslo):
+    def zaloguj_uzytkownika(self, login, haslo):
         cursor = self.conn.cursor()
-        cursor.execute("SELECT * FROM Pracownik WHERE identyfikator = ?", (identyfikator,))
+        cursor.execute("SELECT * FROM Pracownik WHERE login = ?", (login,))
         pracownik = cursor.fetchone()
         if pracownik:
-            if self.weryfikuj_haslo(haslo, pracownik[1]):
+            if self.weryfikuj_haslo(haslo, pracownik[2]):
                 self.zalogowany_pracownik = Recepcjonista(
-                    pracownik[0], pracownik[2], pracownik[3], pracownik[4]
+                    pracownik[0], pracownik[1], pracownik[3], pracownik[4], pracownik[5]
                 )
                 return True
         return False
@@ -53,11 +53,11 @@ class SystemObslugi:
         }
 
     def inicjalizuj_baze_danych(self):
-        if os.path.exists('baza_danych.db'):
-            os.remove('baza_danych.db')
+        first_run = not os.path.exists('baza_danych.db')
         self.conn = sqlite3.connect('baza_danych.db')
-        self._utworz_tabele()
-        self._dodaj_przykladowe_dane()
+        if first_run:
+            self._utworz_tabele()
+            self._dodaj_przykladowe_dane()
 
     def _utworz_tabele(self):
         cursor = self.conn.cursor()
@@ -73,6 +73,7 @@ class SystemObslugi:
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS Pracownik (
             identyfikator INTEGER PRIMARY KEY AUTOINCREMENT,
+            login TEXT NOT NULL UNIQUE,
             haslo TEXT NOT NULL,
             imie TEXT NOT NULL,
             nazwisko TEXT NOT NULL,
@@ -117,7 +118,7 @@ class SystemObslugi:
     def _dodaj_przykladowe_dane(self):
         cursor = self.conn.cursor()
 
-        cursor.execute("INSERT INTO Pracownik (identyfikator, haslo, imie, nazwisko, stanowisko) VALUES (?, ?, ?, ?, ?)", (1, self.szyfruj_haslo("piotr123"), "Piotr", "Zielinski", "Recepcjonista"))
+        cursor.execute("INSERT INTO Pracownik (identyfikator, login, haslo, imie, nazwisko, stanowisko) VALUES (?, ?, ?, ?, ?, ?)", (1, "admin", self.szyfruj_haslo("admin"), "Piotr", "Zielinski", "Kierownik"))
 
         pesele = [self.generuj_testowy_pesel() for _ in range(5)]
         for i in range(1, 6):
@@ -129,6 +130,27 @@ class SystemObslugi:
         # Wolne opaski
         for i in range(6, 11):
             cursor.execute("INSERT INTO Opaska (numerSeryjny, czasWejscia, czasWyjscia, klient_id) VALUES (?, ?, ?, ?)", (1000 + i, (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S"), (datetime.now() - timedelta(hours=23)).strftime("%Y-%m-%d %H:%M:%S"), None))
+
+        # Przykładowe transakcje
+        for i in range(30):
+            klient_id = random.choice(pesele)
+            pracownik_id = 1
+            kwota = round(random.uniform(10.0, 100.0), 2)
+            data = (datetime.now() - timedelta(days=random.randint(0, 30))).strftime("%Y-%m-%d %H:%M:%S")
+            metoda_platnosci = random.choice(["Gotówka", "Karta"])
+            cursor.execute(
+                "INSERT INTO Transakcja (kwota, data, metodaPlatnosci, klient_id, pracownik_id) VALUES (?, ?, ?, ?, ?)",
+                (kwota, data, metoda_platnosci, klient_id, pracownik_id)
+            )
+
+        # Przykładowe raporty
+        for i in range(5):
+            data = (datetime.now() - timedelta(days=random.randint(0, 30))).strftime("%Y-%m-%d")
+            typ_raportu = random.choice(["finansowy", "statystyki"])
+            cursor.execute(
+                "INSERT INTO Raport (data, typRaportu, pracownik_id) VALUES (?, ?, ?)",
+                (data, typ_raportu, 1)
+            )
 
         self.conn.commit()
 
